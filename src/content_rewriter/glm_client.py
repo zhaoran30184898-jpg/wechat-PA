@@ -27,7 +27,8 @@ class GLMClient(BaseAIClient):
         self,
         title: str,
         content: str,
-        target_language: str = "zh-CN"
+        target_language: str = "zh-CN",
+        comments: list = None
     ) -> tuple[str, str]:
         """
         使用GLM改写文章
@@ -36,6 +37,7 @@ class GLMClient(BaseAIClient):
             title: 原标题
             content: 原内容
             target_language: 目标语言
+            comments: 评论列表（可选）
 
         Returns:
             (改写后的标题, 改写后的内容) 元组
@@ -49,8 +51,8 @@ class GLMClient(BaseAIClient):
             await self.start()
 
         try:
-            # 获取改写提示词
-            prompt = get_rewrite_prompt(title, content, target_language)
+            # 获取改写提示词（包含评论）
+            prompt = get_rewrite_prompt(title, content, target_language, comments)
 
             logger.info(f"正在使用 GLM 改写文章: {title[:50]}...")
 
@@ -92,9 +94,9 @@ class GLMClient(BaseAIClient):
         """
         解析AI返回的结果
 
-        格式应该是：
-        标题：xxx
-        内容：xxx
+        支持多种格式：
+        1. 标题：xxx / 内容：xxx
+        2. ## 标题改写 / ## 内容改写
         """
         lines = result.split('\n')
 
@@ -106,7 +108,17 @@ class GLMClient(BaseAIClient):
         for line in lines:
             line = line.strip()
 
-            # 检测标题行
+            # 检测标题分隔符
+            if line in ['## 标题改写', '## 标题', '标题改写', '标题']:
+                current_section = 'title'
+                continue
+
+            # 检测内容分隔符
+            if line in ['## 内容改写', '## 内容', '内容改写', '内容']:
+                current_section = 'content'
+                continue
+
+            # 检测旧的标题行格式
             if line.startswith(('标题:', '标题：', 'Title:', 'TITLE:')):
                 current_section = 'title'
                 # 提取标题
@@ -116,7 +128,7 @@ class GLMClient(BaseAIClient):
                         break
                 continue
 
-            # 检测内容行
+            # 检测旧的内容行格式
             if line.startswith(('内容:', '内容：', 'Content:', 'CONTENT:')):
                 current_section = 'content'
                 # 提取内容开始部分
@@ -126,6 +138,14 @@ class GLMClient(BaseAIClient):
                         if content_part:
                             new_content.append(content_part)
                         break
+                continue
+
+            # 处理标题部分
+            if current_section == 'title' and line and not new_title:
+                # 第一行非空内容就是标题
+                new_title = line
+                # 标题可能包含markdown格式，清理一下
+                new_title = new_title.replace('**', '').replace('*', '').strip()
                 continue
 
             # 添加内容

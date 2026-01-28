@@ -60,7 +60,8 @@ class BaseAIClient(ABC):
         self,
         title: str,
         content: str,
-        target_language: str = "zh-CN"
+        target_language: str = "zh-CN",
+        comments: list = None
     ) -> tuple[str, str]:
         """
         改写文章
@@ -69,6 +70,7 @@ class BaseAIClient(ABC):
             title: 原标题
             content: 原内容
             target_language: 目标语言
+            comments: 评论列表（可选）
 
         Returns:
             (改写后的标题, 改写后的内容) 元组

@@ -31,6 +31,17 @@ class ImageInfo(BaseModel):
         str_strip_whitespace = True
 
 
+class Comment(BaseModel):
+    """评论信息"""
+    author: str = Field(..., description="评论作者")
+    content: str = Field(..., description="评论内容")
+    publish_date: Optional[datetime] = Field(None, description="评论时间")
+    likes: int = Field(default=0, description="点赞数")
+
+    class Config:
+        str_strip_whitespace = True
+
+
 class Article(BaseModel):
     """文章模型"""
     # 基本信息
@@ -49,6 +60,9 @@ class Article(BaseModel):
     # 图片列表
     images: List[ImageInfo] = Field(default_factory=list, description="文章中的图片")
 
+    # 评论列表（论坛类型网站）
+    comments: List[Comment] = Field(default_factory=list, description="文章评论")
+
     # 状态信息
     status: ArticleStatus = Field(default=ArticleStatus.PENDING, description="处理状态")
     error_message: Optional[str] = Field(None, description="错误信息")
@@ -56,6 +70,7 @@ class Article(BaseModel):
     # 统计信息
     word_count: int = Field(default=0, description="字数统计")
     image_count: int = Field(default=0, description="图片数量")
+    comment_count: int = Field(default=0, description="评论数量")
 
     # 改写相关
     rewritten_title: Optional[str] = Field(None, description="改写后的标题")
@@ -88,6 +103,14 @@ class Article(BaseModel):
             return len(info.data['images'])
         return v
 
+    @field_validator('comment_count')
+    @classmethod
+    def calculate_comment_count(cls, v: int, info) -> int:
+        """自动计算评论数量"""
+        if v == 0 and 'comments' in info.data:
+            return len(info.data['comments'])
+        return v
+
     @field_validator('source_domain')
     @classmethod
     def extract_domain(cls, v: str, info) -> str:
@@ -111,6 +134,13 @@ class Article(BaseModel):
         self.images.append(image)
         self.image_count = len(self.images)
         return image
+
+    def add_comment(self, author: str, content: str, **kwargs) -> 'Comment':
+        """添加评论"""
+        comment = Comment(author=author, content=content, **kwargs)
+        self.comments.append(comment)
+        self.comment_count = len(self.comments)
+        return comment
 
     class Config:
         json_encoders = {

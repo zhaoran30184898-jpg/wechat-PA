@@ -1,7 +1,7 @@
 """AI提示词模板"""
 
 
-def get_rewrite_prompt(title: str, content: str, target_language: str = "zh-CN") -> str:
+def get_rewrite_prompt(title: str, content: str, target_language: str = "zh-CN", comments: list = None) -> str:
     """
     获取文章改写提示词
 
@@ -9,38 +9,53 @@ def get_rewrite_prompt(title: str, content: str, target_language: str = "zh-CN")
         title: 原标题
         content: 原内容
         target_language: 目标语言
+        comments: 评论列表（可选）
 
     Returns:
         完整的提示词
     """
     if target_language == "zh-CN":
-        return get_chinese_rewrite_prompt(title, content)
+        return get_chinese_rewrite_prompt(title, content, comments)
     else:
-        return get_general_rewrite_prompt(title, content, target_language)
+        return get_general_rewrite_prompt(title, content, target_language, comments)
 
 
-def get_chinese_rewrite_prompt(title: str, content: str) -> str:
+def get_chinese_rewrite_prompt(title: str, content: str, comments: list = None) -> str:
     """
     中文改写提示词（针对越野摩托车技术文章）
 
     Args:
         title: 原标题
         content: 原内容
+        comments: 评论列表（可选）
 
     Returns:
         中文改写提示词
     """
+
+    # 构建评论文本
+    comments_text = ""
+    if comments and len(comments) > 0:
+        comments_text = "\n# 论坛评论（精选）\n\n"
+        # 最多取前10条有价值的评论
+        valuable_comments = [c for c in comments if len(c.get('content', '')) > 50][:10]
+        for i, comment in enumerate(valuable_comments, 1):
+            author = comment.get('author', 'Anonymous')
+            comment_content = comment.get('content', '')
+            likes = comment.get('likes', 0)
+            comments_text += f"{i}. **{author}**" + (f" ({likes} 赞)" if likes > 0 else "") + f":\n{comment_content}\n\n"
+
     prompt = f"""你是一位专业的越野摩托车内容创作者，擅长将英文技术文章改写成适合中文读者的优质内容。
 
 # 任务
-将以下英文文章改写为中文版本，保持专业性和可读性。
+将以下英文文章及其论坛评论改写为中文版本，保持专业性和可读性。
 
 # 原文章信息
 标题：{title}
 
 内容：
 {content}
-
+{comments_text}
 # 改写要求
 
 ## 1. 标题改写
@@ -62,6 +77,11 @@ def get_chinese_rewrite_prompt(title: str, content: str) -> str:
   - 开头可以用简短的引语吸引读者
   - 保留文章的核心技术要点
   - 可以添加小结或要点
+- **评论处理**（如果有评论）：
+  - 选择有价值的评论内容，整合到正文中
+  - 可以添加"读者经验分享"或"讨论要点"部分
+  - 保留实用的技术补充和经验分享
+  - 不要简单地逐条翻译所有评论
 - **语气要求**：
   - 专业但友好
   - 避免过于生硬的直译
@@ -71,6 +91,7 @@ def get_chinese_rewrite_prompt(title: str, content: str) -> str:
 - 这是一篇关于越野摩托车技术的文章，需要保持技术准确性
 - 目标读者是摩托车爱好者和从业者
 - 发布平台是微信公众号
+- 论坛评论往往包含实用的经验分享，值得参考
 
 # 输出格式
 
@@ -87,7 +108,7 @@ def get_chinese_rewrite_prompt(title: str, content: str) -> str:
     return prompt
 
 
-def get_general_rewrite_prompt(title: str, content: str, target_language: str) -> str:
+def get_general_rewrite_prompt(title: str, content: str, target_language: str, comments: list = None) -> str:
     """
     通用改写提示词
 
@@ -95,6 +116,7 @@ def get_general_rewrite_prompt(title: str, content: str, target_language: str) -
         title: 原标题
         content: 原内容
         target_language: 目标语言
+        comments: 评论列表（可选）
 
     Returns:
         通用改写提示词

@@ -67,8 +67,8 @@ class ArticleFetcher:
                     fetch_time=time.time() - start_time
                 )
 
-            # 3. 解析文章内容
-            title, content, author, images = await self.parser.parse(html, url)
+            # 3. 解析文章内容和评论
+            title, content, author, images, comments_data = await self.parser.parse(html, url)
 
             if not title or not content:
                 return ArticleFetchResult(
@@ -92,6 +92,15 @@ class ArticleFetcher:
             for img_url in images:
                 article.add_image(url=img_url)
 
+            # 添加评论
+            for comment_data in comments_data:
+                article.add_comment(
+                    author=comment_data.get('author', 'Anonymous'),
+                    content=comment_data.get('content', ''),
+                    publish_date=comment_data.get('publish_date'),
+                    likes=comment_data.get('likes', 0)
+                )
+
             # 5. 验证文章质量
             is_valid, errors = self.validator.validate(article)
             if not is_valid:
@@ -111,7 +120,7 @@ class ArticleFetcher:
             fetch_time = time.time() - start_time
             logger.info(
                 f"文章抓取成功: {title[:50]}... "
-                f"({article.word_count} 字, {len(images)} 图, {fetch_time:.2f}秒)"
+                f"({article.word_count} 字, {len(images)} 图, {article.comment_count} 评论, {fetch_time:.2f}秒)"
             )
 
             return ArticleFetchResult(

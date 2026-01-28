@@ -16,6 +16,7 @@ class GeminiClient(BaseAIClient):
         if not self._validate_api_key():
             raise ValueError("Gemini API Key 无效，请检查配置")
 
+        # 配置API密钥
         genai.configure(api_key=self.api_key)
 
         # 配置安全设置

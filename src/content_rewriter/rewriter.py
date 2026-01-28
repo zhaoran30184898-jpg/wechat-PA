@@ -5,9 +5,6 @@ from loguru import logger
 from config import settings
 from src.models.article import Article
 from .base_client import BaseAIClient
-from .gemini_client import GeminiClient
-from .glm_client import GLMClient
-from .claude_client import ClaudeClient
 
 
 class ContentRewriter:
@@ -42,6 +39,7 @@ class ContentRewriter:
 
         if provider == "gemini":
             logger.info("使用 Google Gemini AI")
+            from .gemini_client import GeminiClient
             return GeminiClient(
                 api_key=settings.gemini_api_key,
                 model=settings.gemini_model,
@@ -51,6 +49,7 @@ class ContentRewriter:
 
         elif provider == "glm":
             logger.info("使用智谱 GLM AI")
+            from .glm_client import GLMClient
             return GLMClient(
                 api_key=settings.glm_api_key,
                 model=settings.glm_model,
@@ -60,6 +59,7 @@ class ContentRewriter:
 
         elif provider == "claude":
             logger.info("使用 Anthropic Claude AI")
+            from .claude_client import ClaudeClient
             return ClaudeClient(
                 api_key=settings.anthropic_api_key,
                 model=settings.anthropic_model,
@@ -94,11 +94,25 @@ class ContentRewriter:
             # 更新状态
             article.status = "rewriting"
 
-            # 调用AI改写
+            # 准备评论数据
+            comments_data = []
+            if article.comments:
+                comments_data = [
+                    {
+                        'author': c.author,
+                        'content': c.content,
+                        'likes': c.likes
+                    }
+                    for c in article.comments[:10]  # 最多10条评论
+                ]
+                logger.info(f"包含 {len(comments_data)} 条评论")
+
+            # 调用AI改写（包含评论）
             new_title, new_content = await self.ai_client.rewrite_article(
                 title=article.title,
                 content=article.content,
-                target_language=target_language
+                target_language=target_language,
+                comments=comments_data if comments_data else None
             )
 
             # 更新文章对象
