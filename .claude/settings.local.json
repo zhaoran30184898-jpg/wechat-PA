@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(test:*)",
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "Bash(cmd.exe /c start notepad.exe logs\\\\article_98394.json)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}
