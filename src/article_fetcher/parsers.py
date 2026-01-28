@@ -4,7 +4,6 @@ from urllib.parse import urljoin, urlparse
 from loguru import logger
 from bs4 import BeautifulSoup
 import trafilatura
-import trafilatura.core
 import re
 from datetime import datetime
 
@@ -67,7 +66,7 @@ class TrafilaturaParser:
         """
         try:
             # 使用trafilatura提取内容
-            extracted = trafilatura.core.extract_html(
+            extracted = trafilatura.extract(
                 html,
                 include_comments=False,
                 include_tables=True,
@@ -235,18 +234,25 @@ class BeautifulSoupParser:
             '.content',
             '#content',
             '.post-body',
+            'div.post-body',  # Blogger specific
             'main',
         ]
 
         for selector in content_selectors:
             element = soup.select_one(selector)
             if element:
-                # 提取段落文本
+                # 首先尝试提取段落文本
                 paragraphs = element.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
                 if paragraphs:
                     content = '\n\n'.join([p.get_text().strip() for p in paragraphs if p.get_text().strip()])
                     if len(content) > 200:  # 至少200字符
                         return content
+
+                # Fallback: 如果没有找到段落，直接提取所有文本
+                # 这对某些使用 <br> 分隔的博客（如Blogger）很有用
+                content = element.get_text(separator='\n', strip=True)
+                if len(content) > 200:
+                    return content
 
         # Fallback: 获取所有段落
         all_paragraphs = soup.find_all('p')

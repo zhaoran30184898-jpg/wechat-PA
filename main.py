@@ -92,12 +92,13 @@ async def test_article_fetch(url: str):
         await fetcher.close()
 
 
-async def test_article_rewrite(url: str, style_name: str = None):
+async def test_article_rewrite(url: str, style_name: str = None, publish: bool = False):
     """测试AI改写功能"""
     from src.article_fetcher.fetcher import ArticleFetcher
     from src.content_rewriter.rewriter import ContentRewriter
     from src.content_rewriter.style_learning import StyleManager
     from src.models.style import StyleProfile
+    from src.wechat_publisher import DraftManager
     import json
 
     logger.info("=" * 60)
@@ -116,6 +117,10 @@ async def test_article_rewrite(url: str, style_name: str = None):
 
     fetcher = ArticleFetcher()
     rewriter = ContentRewriter()
+    draft_manager = None
+
+    if publish:
+        draft_manager = DraftManager()
 
     try:
         await fetcher.start()
@@ -163,11 +168,35 @@ async def test_article_rewrite(url: str, style_name: str = None):
             )
         logger.info(f"\n改写结果已保存到: {output_file}")
 
+        # 5. 发布到微信草稿（如果指定）
+        if publish and draft_manager:
+            logger.info("\n步骤3: 发布到微信草稿...")
+            try:
+                media_id = draft_manager.publish_to_draft(article)
+                logger.success(f"[SUCCESS] 草稿发布成功! media_id: {media_id}")
+
+                # 更新JSON文件，保存media_id
+                article.wechat_draft_id = media_id
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    json.dump(
+                        article.model_dump(mode='json'),
+                        f,
+                        ensure_ascii=False,
+                        indent=2
+                    )
+                logger.info(f"已更新文件，保存草稿ID: {output_file}")
+
+            except Exception as e:
+                logger.error(f"发布草稿失败: {e}")
+                logger.info("文章改写已完成，但未发布到微信草稿")
+
     except Exception as e:
         logger.exception(f"测试过程出错: {e}")
     finally:
         await fetcher.close()
         await rewriter.close()
+        if draft_manager:
+            draft_manager.close()
 
 
 async def list_styles():
@@ -268,6 +297,7 @@ async def main():
             # 改写模式
             url = None
             style_name = None
+            publish = False
 
             # 解析参数
             i = 2
@@ -275,6 +305,9 @@ async def main():
                 if sys.argv[i] == "--style" and i + 1 < len(sys.argv):
                     style_name = sys.argv[i + 1]
                     i += 2
+                elif sys.argv[i] == "--publish":
+                    publish = True
+                    i += 1
                 elif url is None:
                     url = sys.argv[i]
                     i += 1
@@ -285,10 +318,12 @@ async def main():
                 logger.info(f"改写模式: 抓取并改写 -> {url}")
                 if style_name:
                     logger.info(f"使用风格: {style_name}")
-                await test_article_rewrite(url, style_name)
+                if publish:
+                    logger.info("将发布到微信草稿箱")
+                await test_article_rewrite(url, style_name, publish)
             else:
                 logger.error("错误: 改写模式需要提供URL")
-                logger.info("用法: python main.py --rewrite <URL> [--style <风格名>]")
+                logger.info("用法: python main.py --rewrite <URL> [--style <风格名>] [--publish]")
 
         elif command == "--fetch" or command == "-f":
             # 抓取模式
