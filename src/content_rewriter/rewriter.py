@@ -4,6 +4,7 @@ from loguru import logger
 
 from config import settings
 from src.models.article import Article
+from src.models.style import StyleProfile
 from .base_client import BaseAIClient
 
 
@@ -73,7 +74,8 @@ class ContentRewriter:
     async def rewrite_article(
         self,
         article: Article,
-        target_language: str = "zh-CN"
+        target_language: str = "zh-CN",
+        style: Optional[StyleProfile] = None
     ) -> Article:
         """
         改写文章
@@ -81,6 +83,7 @@ class ContentRewriter:
         Args:
             article: 原文章对象
             target_language: 目标语言
+            style: 风格配置（可选）
 
         Returns:
             改写后的文章对象（会修改原对象）
@@ -89,7 +92,8 @@ class ContentRewriter:
             await self.start()
 
         try:
-            logger.info(f"开始改写文章: {article.title}")
+            style_name = style.name if style else "默认"
+            logger.info(f"开始改写文章 (风格: {style_name}): {article.title}")
 
             # 更新状态
             article.status = "rewriting"
@@ -107,12 +111,13 @@ class ContentRewriter:
                 ]
                 logger.info(f"包含 {len(comments_data)} 条评论")
 
-            # 调用AI改写（包含评论）
+            # 调用AI改写（包含评论和风格）
             new_title, new_content = await self.ai_client.rewrite_article(
                 title=article.title,
                 content=article.content,
                 target_language=target_language,
-                comments=comments_data if comments_data else None
+                comments=comments_data if comments_data else None,
+                style=style
             )
 
             # 更新文章对象

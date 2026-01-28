@@ -1,7 +1,9 @@
 """AI提示词模板"""
+from typing import Optional, List, Dict
+from src.models.style import StyleProfile
 
 
-def get_rewrite_prompt(title: str, content: str, target_language: str = "zh-CN", comments: list = None) -> str:
+def get_rewrite_prompt(title: str, content: str, target_language: str = "zh-CN", comments: list = None, style: Optional[StyleProfile] = None) -> str:
     """
     获取文章改写提示词
 
@@ -10,10 +12,16 @@ def get_rewrite_prompt(title: str, content: str, target_language: str = "zh-CN",
         content: 原内容
         target_language: 目标语言
         comments: 评论列表（可选）
+        style: 风格配置（可选），如果提供则使用动态提示词
 
     Returns:
         完整的提示词
     """
+    # 如果提供了风格配置，使用动态提示词
+    if style is not None:
+        return style.get_full_prompt(title, content, comments)
+
+    # 否则使用默认提示词
     if target_language == "zh-CN":
         return get_chinese_rewrite_prompt(title, content, comments)
     else:

@@ -5,6 +5,7 @@ from zhipuai import ZhipuAI
 
 from .base_client import BaseAIClient
 from .prompts import get_rewrite_prompt
+from src.models.style import StyleProfile
 
 
 class GLMClient(BaseAIClient):
@@ -28,7 +29,8 @@ class GLMClient(BaseAIClient):
         title: str,
         content: str,
         target_language: str = "zh-CN",
-        comments: list = None
+        comments: list = None,
+        style: Optional[StyleProfile] = None
     ) -> tuple[str, str]:
         """
         使用GLM改写文章
@@ -38,6 +40,7 @@ class GLMClient(BaseAIClient):
             content: 原内容
             target_language: 目标语言
             comments: 评论列表（可选）
+            style: 风格配置（可选）
 
         Returns:
             (改写后的标题, 改写后的内容) 元组
@@ -51,10 +54,11 @@ class GLMClient(BaseAIClient):
             await self.start()
 
         try:
-            # 获取改写提示词（包含评论）
-            prompt = get_rewrite_prompt(title, content, target_language, comments)
+            # 获取改写提示词（包含评论和风格配置）
+            prompt = get_rewrite_prompt(title, content, target_language, comments, style)
 
-            logger.info(f"正在使用 GLM 改写文章: {title[:50]}...")
+            style_name = style.name if style else "默认"
+            logger.info(f"正在使用 GLM 改写文章 (风格: {style_name}): {title[:50]}...")
 
             # 调用GLM API
             response = await self._generate_content_async(prompt)

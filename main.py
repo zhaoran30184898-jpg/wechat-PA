@@ -92,15 +92,27 @@ async def test_article_fetch(url: str):
         await fetcher.close()
 
 
-async def test_article_rewrite(url: str):
+async def test_article_rewrite(url: str, style_name: str = None):
     """测试AI改写功能"""
     from src.article_fetcher.fetcher import ArticleFetcher
     from src.content_rewriter.rewriter import ContentRewriter
+    from src.content_rewriter.style_learning import StyleManager
+    from src.models.style import StyleProfile
     import json
 
     logger.info("=" * 60)
     logger.info("测试AI改写功能")
     logger.info("=" * 60)
+
+    # 加载风格配置（如果指定）
+    style = None
+    if style_name:
+        style_manager = StyleManager()
+        style = style_manager.load_style(style_name)
+        if style:
+            logger.info(f"使用风格: {style.name} - {style.description}")
+        else:
+            logger.warning(f"未找到风格 '{style_name}'，使用默认风格")
 
     fetcher = ArticleFetcher()
     rewriter = ContentRewriter()
@@ -123,7 +135,7 @@ async def test_article_rewrite(url: str):
 
         # 2. AI改写
         logger.info("\n步骤2: AI改写中...")
-        rewrite_result = await rewriter.rewrite_article(article, target_language="zh-CN")
+        rewrite_result = await rewriter.rewrite_article(article, target_language="zh-CN", style=style)
 
         logger.success("[SUCCESS] AI改写完成！")
 
@@ -156,6 +168,39 @@ async def test_article_rewrite(url: str):
     finally:
         await fetcher.close()
         await rewriter.close()
+
+
+async def list_styles():
+    """列出所有可用的风格"""
+    from src.content_rewriter.style_learning import StyleManager
+
+    logger.info("=" * 60)
+    logger.info("可用的文章风格")
+    logger.info("=" * 60)
+
+    style_manager = StyleManager()
+    styles = style_manager.list_styles()
+
+    if not styles:
+        logger.warning("未找到任何风格配置")
+        return
+
+    # 分组显示
+    predefined = [s for s in styles if s.is_predefined]
+    user_custom = [s for s in styles if not s.is_predefined]
+
+    if predefined:
+        logger.info("\n预定义风格:")
+        for style in predefined:
+            logger.info(f"  - {style.name} - {style.description}")
+
+    if user_custom:
+        logger.info("\n用户自定义风格:")
+        for style in user_custom:
+            logger.info(f"  - {style.name} - {style.description}")
+
+    logger.info(f"\n总计: {len(styles)} 个风格")
+    logger.info("\n使用方法: python main.py --rewrite <URL> --style <风格名>")
 
 
 async def interactive_mode():
@@ -215,15 +260,36 @@ async def main():
     if len(sys.argv) > 1:
         command = sys.argv[1]
 
-        if command == "--rewrite" or command == "-r":
+        if command == "--list-styles":
+            # 列出所有可用风格
+            await list_styles()
+
+        elif command == "--rewrite" or command == "-r":
             # 改写模式
-            if len(sys.argv) > 2:
-                url = sys.argv[2]
+            url = None
+            style_name = None
+
+            # 解析参数
+            i = 2
+            while i < len(sys.argv):
+                if sys.argv[i] == "--style" and i + 1 < len(sys.argv):
+                    style_name = sys.argv[i + 1]
+                    i += 2
+                elif url is None:
+                    url = sys.argv[i]
+                    i += 1
+                else:
+                    i += 1
+
+            if url:
                 logger.info(f"改写模式: 抓取并改写 -> {url}")
-                await test_article_rewrite(url)
+                if style_name:
+                    logger.info(f"使用风格: {style_name}")
+                await test_article_rewrite(url, style_name)
             else:
                 logger.error("错误: 改写模式需要提供URL")
-                logger.info("用法: python main.py --rewrite <URL>")
+                logger.info("用法: python main.py --rewrite <URL> [--style <风格名>]")
+
         elif command == "--fetch" or command == "-f":
             # 抓取模式
             if len(sys.argv) > 2:
