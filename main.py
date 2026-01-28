@@ -92,6 +92,72 @@ async def test_article_fetch(url: str):
         await fetcher.close()
 
 
+async def test_article_rewrite(url: str):
+    """测试AI改写功能"""
+    from src.article_fetcher.fetcher import ArticleFetcher
+    from src.content_rewriter.rewriter import ContentRewriter
+    import json
+
+    logger.info("=" * 60)
+    logger.info("测试AI改写功能")
+    logger.info("=" * 60)
+
+    fetcher = ArticleFetcher()
+    rewriter = ContentRewriter()
+
+    try:
+        await fetcher.start()
+        await rewriter.start()
+
+        # 1. 抓取文章
+        logger.info("步骤1: 抓取文章")
+        fetch_result = await fetcher.fetch(url)
+
+        if not fetch_result.success:
+            logger.error(f"抓取失败: {fetch_result.error_message}")
+            return
+
+        article = fetch_result.article
+        logger.info(f"抓取成功: {article.title}")
+        logger.info(f"字数: {article.word_count}")
+
+        # 2. AI改写
+        logger.info("\n步骤2: AI改写中...")
+        rewrite_result = await rewriter.rewrite_article(article, target_language="zh-CN")
+
+        logger.success("[SUCCESS] AI改写完成！")
+
+        # 3. 显示结果
+        logger.info("\n" + "=" * 60)
+        logger.info("原标题: " + article.title)
+        logger.info("新标题: " + (article.rewritten_title or "无"))
+        logger.info("=" * 60)
+
+        logger.info("\n改写后的内容预览 (前500字):")
+        if article.rewritten_content:
+            preview = article.rewritten_content[:500] + "..." if len(article.rewritten_content) > 500 else article.rewritten_content
+            logger.info(preview)
+        else:
+            logger.warning("改写内容为空")
+
+        # 4. 保存结果
+        output_file = Path("logs") / f"article_rewritten_{int(asyncio.get_event_loop().time())}.json"
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(
+                article.model_dump(mode='json'),
+                f,
+                ensure_ascii=False,
+                indent=2
+            )
+        logger.info(f"\n改写结果已保存到: {output_file}")
+
+    except Exception as e:
+        logger.exception(f"测试过程出错: {e}")
+    finally:
+        await fetcher.close()
+        await rewriter.close()
+
+
 async def interactive_mode():
     """交互模式 - 用户输入URL"""
     from src.article_fetcher.fetcher import ArticleFetcher
@@ -147,9 +213,31 @@ async def main():
 
     # 解析命令行参数
     if len(sys.argv) > 1:
-        url = sys.argv[1]
-        logger.info(f"测试模式: 抓取URL -> {url}")
-        await test_article_fetch(url)
+        command = sys.argv[1]
+
+        if command == "--rewrite" or command == "-r":
+            # 改写模式
+            if len(sys.argv) > 2:
+                url = sys.argv[2]
+                logger.info(f"改写模式: 抓取并改写 -> {url}")
+                await test_article_rewrite(url)
+            else:
+                logger.error("错误: 改写模式需要提供URL")
+                logger.info("用法: python main.py --rewrite <URL>")
+        elif command == "--fetch" or command == "-f":
+            # 抓取模式
+            if len(sys.argv) > 2:
+                url = sys.argv[2]
+                logger.info(f"抓取模式: 抓取URL -> {url}")
+                await test_article_fetch(url)
+            else:
+                logger.error("错误: 抓取模式需要提供URL")
+                logger.info("用法: python main.py --fetch <URL>")
+        else:
+            # 默认抓取模式（向后兼容）
+            url = command
+            logger.info(f"抓取模式: 抓取URL -> {url}")
+            await test_article_fetch(url)
     else:
         logger.info("交互模式: 请输入文章URL")
         await interactive_mode()
